@@ -1073,6 +1073,9 @@ static void on_sigterm(int signo)
 }
 
 #ifdef __GLIBC__
+
+#ifdef H2O_BACKTRACE
+
 static int popen_annotate_backtrace_symbols(void)
 {
     char *cmd_fullpath = h2o_configurator_get_cmd_path("share/h2o/annotate-backtrace-symbols"), *argv[] = {cmd_fullpath, NULL};
@@ -1104,15 +1107,23 @@ static int popen_annotate_backtrace_symbols(void)
 
 static int backtrace_symbols_to_fd = -1;
 
+#endif
+
 static void on_sigfatal(int signo)
 {
+#ifdef H2O_BACKTRACE
     fprintf(stderr, "received fatal signal %d; backtrace follows\n", signo);
+#else
+    fprintf(stderr, "received fatal signal %d\n", signo);
+#endif
 
     h2o_set_signal_handler(signo, SIG_DFL);
+#ifdef H2O_BACKTRACE
 
     void *frames[128];
     int framecnt = backtrace(frames, sizeof(frames) / sizeof(frames[0]));
     backtrace_symbols_fd(frames, framecnt, backtrace_symbols_to_fd);
+#endif
 
     raise(signo);
 }
@@ -1123,8 +1134,11 @@ static void setup_signal_handlers(void)
     h2o_set_signal_handler(SIGTERM, on_sigterm);
     h2o_set_signal_handler(SIGPIPE, SIG_IGN);
 #ifdef __GLIBC__
+
+#ifdef H2O_BACKTRACE
     if ((backtrace_symbols_to_fd = popen_annotate_backtrace_symbols()) == -1)
         backtrace_symbols_to_fd = 2;
+#endif
     h2o_set_signal_handler(SIGABRT, on_sigfatal);
     h2o_set_signal_handler(SIGBUS, on_sigfatal);
     h2o_set_signal_handler(SIGFPE, on_sigfatal);
